@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Outfit', system-ui, sans-serif;
+
+  --color-brand-50: #f0fdf4;
+  --color-brand-100: #dcfce7;
+  --color-brand-200: #bbf7d0;
+  --color-brand-300: #86efac;
+  --color-brand-400: #4ade80;
+  --color-brand-500: #22c55e;
+  --color-brand-600: #16a34a;
+  --color-brand-700: #15803d;
+  --color-brand-800: #166534;
+  --color-brand-900: #14532d;
+
+  --color-accent-400: #fb923c;
+  --color-accent-500: #f97316;
+  --color-accent-600: #ea580c;
+
+  --color-surface-900: #0a0f0d;
+  --color-surface-800: #111812;
+  --color-surface-700: #1a2420;
+  --color-surface-600: #243028;
+  --color-surface-500: #2e3c34;
+  --color-surface-400: #3d5046;
+
+  --color-text-primary: #f0fdf4;
+  --color-text-secondary: #a3b3a8;
+  --color-text-muted: #6b7f74;
+
+  --radius-card: 1rem;
+  --radius-button: 0.625rem;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-surface-900);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
