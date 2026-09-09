@@ -8,6 +8,7 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "Recipes", href: "/recipes" },
   { label: "Scan Recipe", href: "/scan" },
+  { label: "QR Codes", href: "/qr" },
   { label: "AI Assistant", href: "/ai" },
   { label: "Dashboard", href: "/dashboard" },
   { label: "Leaderboard", href: "/leaderboard" },
