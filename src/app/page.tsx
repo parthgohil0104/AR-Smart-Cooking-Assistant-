@@ -56,25 +56,6 @@ export default function HomePage() {
           }}
         />
 
-        {/* Badge */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.375rem 0.875rem",
-            borderRadius: "999px",
-            border: "1px solid rgba(34,197,94,0.3)",
-            backgroundColor: "rgba(34,197,94,0.08)",
-            fontSize: "0.8125rem",
-            fontWeight: 500,
-            color: "#4ade80",
-            marginBottom: "1.75rem",
-          }}
-        >
-          <span>✨</span> Phase 1 — Foundation
-        </div>
-
         {/* Headline */}
         <h1
           style={{

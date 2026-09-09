@@ -304,10 +304,55 @@ export default async function RecipeDetailPage({ params }: Props) {
           </section>
         </div>
 
+        {/* AR Cooking CTA */}
+        <div
+          style={{
+            marginTop: "2.5rem",
+            padding: "1.75rem",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(251,146,60,0.08))",
+            border: "1px solid rgba(34,197,94,0.25)",
+            borderRadius: "1.25rem",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "1rem",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: "2.5rem" }}>📱</div>
+          <div>
+            <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1.125rem", color: "#f0fdf4", marginBottom: "0.375rem" }}>
+              Ready to Cook?
+            </p>
+            <p style={{ fontSize: "0.875rem", color: "#a3b3a8", lineHeight: 1.6 }}>
+              Enter AR Cooking Mode and follow step-by-step instructions overlaid on your real kitchen.
+            </p>
+          </div>
+          <Link
+            href={`/ar/${recipe.id}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.875rem 2rem",
+              borderRadius: "0.75rem",
+              background: "linear-gradient(135deg, #22c55e, #16a34a)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: "1rem",
+              textDecoration: "none",
+              boxShadow: "0 4px 20px rgba(34,197,94,0.35)",
+            }}
+            id="start-ar-btn"
+          >
+            🥽 Start AR Cooking
+          </Link>
+        </div>
+
         {/* Footer links */}
         <div
           style={{
-            marginTop: "3rem",
+            marginTop: "1.5rem",
             display: "flex",
             gap: "1rem",
             flexWrap: "wrap",

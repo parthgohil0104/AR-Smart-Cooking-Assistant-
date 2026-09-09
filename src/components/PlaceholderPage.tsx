@@ -62,27 +62,6 @@ export function PlaceholderPage({
         {icon}
       </div>
 
-      {/* Badge */}
-      <div
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.375rem",
-          padding: "0.3rem 0.75rem",
-          borderRadius: "999px",
-          border: "1px solid rgba(249,115,22,0.3)",
-          backgroundColor: "rgba(249,115,22,0.08)",
-          fontSize: "0.75rem",
-          fontWeight: 600,
-          color: "#fb923c",
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          marginBottom: "1.25rem",
-        }}
-      >
-        Coming Soon
-      </div>
-
       {/* Title */}
       <h1
         style={{

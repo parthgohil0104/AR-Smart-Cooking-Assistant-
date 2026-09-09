@@ -1,7 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import { recipes } from "@/data/recipes";
 import type { Metadata } from "next";
-
 export const metadata: Metadata = {
   title: "Recipes | AR Smart Cooking Assistant",
   description: "Browse and discover step-by-step AR-guided recipes.",
@@ -119,9 +119,11 @@ export default function RecipesPage() {
                     borderBottom: "1px solid rgba(34,197,94,0.14)",
                   }}
                 >
-                  <img
+                  <Image
                     src={recipe.image}
                     alt={recipe.name}
+                    width={400}
+                    height={300}
                     style={{
                       width: "100%",
                       height: "100%",
