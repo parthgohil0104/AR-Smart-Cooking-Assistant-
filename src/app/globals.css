@@ -56,17 +56,22 @@ body {
 
 /* ── AR Mode: full-screen isolation ─────────────────────────────────────────
    Applied via JS when the user enters /ar/[id] active AR phase.
-   Prevents body scroll, hides navbar/footer, and ensures the AR camera
-   fills the entire viewport without normal webpage elements showing through.
+   Prevents body scroll, hides navbar/footer/main content, and ensures the
+   AR camera fills the entire viewport without normal webpage elements showing.
    ─────────────────────────────────────────────────────────────────────────── */
+html.ar-active,
 body.ar-active {
   overflow: hidden !important;
+  height: 100% !important;
   touch-action: none;
+  overscroll-behavior: none;
   -webkit-overflow-scrolling: auto;
 }
 
+/* Hide the root layout header, main, and footer when AR is active */
 body.ar-active > * > header,
-body.ar-active > * > footer {
+body.ar-active > * > footer,
+body.ar-active > * > main {
   display: none !important;
 }
 
@@ -78,9 +83,10 @@ body.ar-active a-scene {
   width: 100vw !important;
   height: 100dvh !important;
   z-index: 0 !important;
+  overflow: hidden !important;
 }
 
-/* AR.js injects a canvas and video element directly onto the body */
+/* AR.js injects canvas and video elements directly onto the body/scene */
 body.ar-active canvas,
 body.ar-active video {
   position: fixed !important;
@@ -91,4 +97,13 @@ body.ar-active video {
   object-fit: cover !important;
   z-index: 0 !important;
   pointer-events: none !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* Prevent A-Frame from showing its own fullscreen / VR buttons */
+.a-enter-vr,
+.a-loader-title,
+.a-orientation-modal {
+  display: none !important;
 }

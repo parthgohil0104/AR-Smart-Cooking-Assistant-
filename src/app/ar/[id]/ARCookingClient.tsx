@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Recipe, CookingStep } from "@/types/recipe";
 
-/* ─── Web Speech API type declarations (not in standard TS lib) ────────────── */
+/* ─── Web Speech API type declarations ─────────────────────────────────────── */
 declare global {
   interface Window {
     SpeechRecognition?: new () => ISpeechRecognition;
     webkitSpeechRecognition?: new () => ISpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    AFRAME?: any;
   }
 }
 
@@ -47,7 +49,7 @@ interface ISpeechRecognition extends EventTarget {
   abort(): void;
 }
 
-/* ─── Types ───────────────────────────────────────────────────────────────── */
+/* ─── Types ─────────────────────────────────────────────────────────────────── */
 
 type ARPhase = "intro" | "ar" | "complete";
 
@@ -59,7 +61,7 @@ interface TimerState {
 
 type VoiceStatus = "idle" | "listening" | "unsupported";
 
-/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+/* ─── Helpers ───────────────────────────────────────────────────────────────── */
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -84,11 +86,11 @@ function wrapText(text: string, maxChars: number): string {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  COMPONENT                                                                */
+/*  COMPONENT                                                                 */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 export function ARCookingClient({ recipe }: { recipe: Recipe }) {
-  /* ── State ────────────────────────────────────────────────────────────── */
+  /* ── State ──────────────────────────────────────────────────────────────── */
   const [phase, setPhase] = useState<ARPhase>("intro");
   const [currentStep, setCurrentStep] = useState(0);
   const [timer, setTimer] = useState<TimerState>({ remaining: 0, running: false, total: 0 });
@@ -102,7 +104,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   const arContainerRef = useRef<HTMLDivElement>(null);
   const scriptsLoadedRef = useRef(false);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
-  const currentStepRef = useRef(0); // kept in sync for use inside voice callbacks
+  const currentStepRef = useRef(0);
   const timerRunningRef = useRef(false);
 
   const step: CookingStep = recipe.steps[currentStep];
@@ -112,23 +114,25 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
   useEffect(() => { timerRunningRef.current = timer.running; }, [timer.running]);
 
-  /* ── Body / viewport isolation ────────────────────────────────────────── */
+  /* ── Body / viewport isolation ─────────────────────────────────────────── */
   useEffect(() => {
     if (phase === "ar") {
       document.body.classList.add("ar-active");
-      // Prevent pull-to-refresh on mobile
+      document.documentElement.classList.add("ar-active");
       document.documentElement.style.overscrollBehavior = "none";
     } else {
       document.body.classList.remove("ar-active");
+      document.documentElement.classList.remove("ar-active");
       document.documentElement.style.overscrollBehavior = "";
     }
     return () => {
       document.body.classList.remove("ar-active");
+      document.documentElement.classList.remove("ar-active");
       document.documentElement.style.overscrollBehavior = "";
     };
   }, [phase]);
 
-  /* ── Timer logic ──────────────────────────────────────────────────────── */
+  /* ── Timer logic ────────────────────────────────────────────────────────── */
   const stopTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     setTimer((prev) => ({ ...prev, running: false }));
@@ -153,19 +157,17 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     setTimer({ remaining: stepObj.duration, running: false, total: stepObj.duration });
   }, []);
 
-  // Reset (but do NOT start) timer when step changes
   useEffect(() => {
     if (step) resetTimerForStep(step);
   }, [currentStep, step, resetTimerForStep]);
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  /* ── Navigation ───────────────────────────────────────────────────────── */
+  /* ── Navigation ─────────────────────────────────────────────────────────── */
   const goNext = useCallback((andStartTimer = false) => {
     stopTimer();
     const step = currentStepRef.current;
@@ -173,7 +175,6 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
       const nextIdx = step + 1;
       setCurrentStep(nextIdx);
       if (andStartTimer) {
-        // Schedule timer start after step state updates
         setTimeout(() => {
           if (recipe.steps[nextIdx]?.duration > 0) {
             startTimer();
@@ -192,7 +193,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     if (currentStepRef.current > 0) setCurrentStep((p) => p - 1);
   }, [stopTimer]);
 
-  /* ── AR Scene teardown ────────────────────────────────────────────────── */
+  /* ── AR Scene teardown ──────────────────────────────────────────────────── */
   const exitAR = useCallback(() => {
     // 1. Stop speech recognition
     if (recognitionRef.current) {
@@ -206,10 +207,18 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     if (timerRef.current) clearInterval(timerRef.current);
     setTimer((prev) => ({ ...prev, running: false }));
 
-    // 3. Remove A-Frame scene elements (stops the camera stream)
-    const scenes = document.querySelectorAll("a-scene");
-    scenes.forEach((s) => {
-      // Try gracefully stopping the camera through AR.js internals
+    // 3. Stop camera streams on all video elements
+    document.querySelectorAll("video").forEach((v) => {
+      if (v.srcObject) {
+        try {
+          (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+        } catch { /* ignore */ }
+      }
+      try { v.srcObject = null; } catch { /* ignore */ }
+    });
+
+    // 4. Remove A-Frame scenes (also stops any remaining camera via AR.js)
+    document.querySelectorAll("a-scene").forEach((s) => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sceneEl = s as any;
@@ -219,25 +228,35 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
             (vid.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
           }
         }
+        if (typeof sceneEl.destroy === "function") sceneEl.destroy();
       } catch { /* ignore */ }
-      s.remove();
+      try { s.remove(); } catch { /* ignore */ }
     });
 
-    // 4. Stop any remaining video/camera tracks on the page
+    // 5. Remove any leftover AR.js-injected video/canvas elements
     document.querySelectorAll("video").forEach((v) => {
       if (v.srcObject) {
-        (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+        try {
+          (v.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+        } catch { /* ignore */ }
       }
-      v.remove();
+      try { v.remove(); } catch { /* ignore */ }
+    });
+    document.querySelectorAll("canvas").forEach((c) => {
+      // Only remove canvases that AR.js added (not ones inside React-managed elements)
+      if (!c.closest("[data-ar-managed]")) {
+        try { c.remove(); } catch { /* ignore */ }
+      }
     });
 
-    // 5. Restore body state
+    // 6. Restore body/html state
     document.body.classList.remove("ar-active");
+    document.documentElement.classList.remove("ar-active");
     document.documentElement.style.overscrollBehavior = "";
     setMarkerDetected(false);
   }, []);
 
-  /* ── Load A-Frame + AR.js scripts ─────────────────────────────────────── */
+  /* ── Load A-Frame + AR.js scripts ──────────────────────────────────────── */
   const loadARScripts = useCallback((): Promise<void> => {
     if (scriptsLoadedRef.current) return Promise.resolve();
     return new Promise((resolve, reject) => {
@@ -255,11 +274,10 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     });
   }, []);
 
-  /* ── Start AR session ─────────────────────────────────────────────────── */
+  /* ── Start AR session ───────────────────────────────────────────────────── */
   const startAR = useCallback(async () => {
     try {
       setArError(null);
-      // Request camera permission explicitly for a better UX error message
       try {
         await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       } catch {
@@ -273,7 +291,57 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     }
   }, [loadARScripts]);
 
-  /* ── Build AR scene once entering "ar" phase ──────────────────────────── */
+  /* ── Register distance-scaling A-Frame component ──────────────────────── */
+  const registerDistanceScaler = useCallback(() => {
+    if (!window.AFRAME || window.AFRAME.components["distance-scaler"]) return;
+
+    window.AFRAME.registerComponent("distance-scaler", {
+      schema: {
+        min: { type: "number", default: 0.7 },
+        max: { type: "number", default: 2.8 },
+        baseDistance: { type: "number", default: 1.2 },
+        lerpSpeed: { type: "number", default: 0.08 },
+      },
+      init() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.currentScale = 1.0 as any;
+        this.camera = null;
+      },
+      tick() {
+        if (!this.camera) {
+          this.camera = document.querySelector("[camera]");
+          if (!this.camera) return;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const camPos = (this.camera as any).object3D?.position;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const myPos = (this.el as any).object3D?.position;
+        if (!camPos || !myPos) return;
+
+        const dx = camPos.x - myPos.x;
+        const dy = camPos.y - myPos.y;
+        const dz = camPos.z - myPos.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        // Compute target scale: at baseDistance → scale 1.0; farther → bigger; closer → smaller
+        const ratio = dist / this.data.baseDistance;
+        // Use sqrt to soften the scaling curve
+        const rawTarget = Math.sqrt(ratio);
+        const targetScale = Math.max(this.data.min, Math.min(this.data.max, rawTarget));
+
+        // Smooth lerp toward target
+        this.currentScale = this.currentScale + (targetScale - this.currentScale) * this.data.lerpSpeed;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const obj3d = (this.el as any).object3D;
+        if (obj3d) {
+          obj3d.scale.set(this.currentScale, this.currentScale, this.currentScale);
+        }
+      },
+    });
+  }, []);
+
+  /* ── Build AR scene once entering "ar" phase ────────────────────────────── */
   useEffect(() => {
     if (phase !== "ar" || !arContainerRef.current) return;
     const container = arContainerRef.current;
@@ -281,164 +349,169 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
 
     const buildTimeout = setTimeout(() => {
       try {
+        // Register the distance-scaler component if AFRAME is ready
+        registerDistanceScaler();
+
         /* ── a-scene ── */
         const scene = document.createElement("a-scene");
-        // "embedded" makes A-Frame not go fullscreen on its own
         scene.setAttribute("embedded", "");
         scene.setAttribute(
           "arjs",
-          "sourceType: webcam; facingMode: environment; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+          "sourceType: webcam; facingMode: environment; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; smoothCount: 10; smoothTolerance: 0.01; smoothThreshold: 5;"
         );
         scene.setAttribute("renderer", "logarithmicDepthBuffer: true; precision: medium; antialias: true;");
         scene.setAttribute("vr-mode-ui", "enabled: false");
         scene.setAttribute("loading-screen", "enabled: false");
+        // Explicitly size the scene to full viewport
         scene.style.cssText =
-          "position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;";
+          "position:fixed;top:0;left:0;width:100vw;height:100dvh;z-index:0;overflow:hidden;";
 
         /* ── Hiro marker ── */
         const marker = document.createElement("a-marker");
         marker.setAttribute("preset", "hiro");
         marker.setAttribute("id", "ar-cooking-marker");
+        marker.setAttribute("smooth", "true");
+        marker.setAttribute("smoothCount", "10");
+        marker.setAttribute("smoothTolerance", "0.01");
+        marker.setAttribute("smoothThreshold", "5");
         marker.addEventListener("markerFound", () => setMarkerDetected(true));
         marker.addEventListener("markerLost", () => setMarkerDetected(false));
 
         /*
-         * ── AR Panel layout ──────────────────────────────────────────────────
-         * The Hiro marker lies flat on a horizontal surface.
-         * AR.js origin: Y-axis points UP from the marker centre.
+         * ── AR Panel layout ───────────────────────────────────────────────────
+         * The Hiro marker lies FLAT on a horizontal surface.
+         * AR.js: Y-axis points UP from the marker centre.
          *
-         * Strategy: place all panel elements in a parent entity positioned
-         * above the marker (Y = 0.5 → 50 cm above surface). Rotate the
-         * parent -90° on X so the panel faces UP (toward the phone camera).
-         * Then arrange child text elements in that rotated local space.
-         * ─────────────────────────────────────────────────────────────────── */
+         * panelEntity is positioned 5 cm above the marker surface (Y=0.05)
+         * and rotated -90° on X so the panel faces UPWARD toward the camera.
+         *
+         * distance-scaler component handles dynamic scale based on camera distance.
+         * ─────────────────────────────────────────────────────────────────────── */
         const panelEntity = document.createElement("a-entity");
-        panelEntity.setAttribute("position", "0 0.01 0");
+        panelEntity.setAttribute("position", "0 0.05 0");
         panelEntity.setAttribute("rotation", "-90 0 0");
+        // distance-scaler: min=0.7, max=2.8, baseDistance=1.2m, lerp=0.08
+        panelEntity.setAttribute("distance-scaler", "min: 0.7; max: 2.8; baseDistance: 1.2; lerpSpeed: 0.08");
         marker.appendChild(panelEntity);
 
-        // ── Panel background ──
+        /* ── Panel background ── */
         const panelBg = document.createElement("a-plane");
         panelBg.setAttribute("position", "0 0 0");
-        panelBg.setAttribute("width", "2.2");
-        panelBg.setAttribute("height", "1.7");
-        panelBg.setAttribute("color", "#0d1a10");
-        panelBg.setAttribute("opacity", "0.94");
+        panelBg.setAttribute("width", "2.8");
+        panelBg.setAttribute("height", "2.2");
+        panelBg.setAttribute("color", "#0a0f0d");
+        panelBg.setAttribute("opacity", "0.95");
         panelBg.setAttribute("side", "double");
         panelEntity.appendChild(panelBg);
 
-        // ── Green accent bar (top) ──
+        /* ── Border frame ── */
+        const borderFrame = document.createElement("a-plane");
+        borderFrame.setAttribute("position", "0 0 -0.001");
+        borderFrame.setAttribute("width", "2.84");
+        borderFrame.setAttribute("height", "2.24");
+        borderFrame.setAttribute("color", "#22c55e");
+        borderFrame.setAttribute("opacity", "0.3");
+        borderFrame.setAttribute("side", "double");
+        panelEntity.appendChild(borderFrame);
+
+        /* ── Green accent bar (top) ── */
         const accentTop = document.createElement("a-plane");
-        accentTop.setAttribute("position", "0 0.78 0.001");
-        accentTop.setAttribute("width", "2.2");
-        accentTop.setAttribute("height", "0.07");
+        accentTop.setAttribute("position", "0 1.02 0.001");
+        accentTop.setAttribute("width", "2.8");
+        accentTop.setAttribute("height", "0.1");
         accentTop.setAttribute("color", "#22c55e");
         accentTop.setAttribute("opacity", "0.95");
         panelEntity.appendChild(accentTop);
 
-        // ── "AR COOKING" title ──
+        /* ── "AR COOKING" label ── */
         const titleText = document.createElement("a-text");
         titleText.setAttribute("value", "AR COOKING");
-        titleText.setAttribute("position", "0 0.6 0.002");
+        titleText.setAttribute("position", "0 0.82 0.002");
         titleText.setAttribute("align", "center");
         titleText.setAttribute("color", "#22c55e");
-        titleText.setAttribute("width", "1.8");
+        titleText.setAttribute("width", "2.2");
         titleText.setAttribute("font", "mozillavr");
         titleText.setAttribute("id", "ar-title");
         panelEntity.appendChild(titleText);
 
-        // ── Recipe name ──
+        /* ── Recipe name ── */
         const nameText = document.createElement("a-text");
         nameText.setAttribute("value", recipe.name.toUpperCase());
-        nameText.setAttribute("position", "0 0.42 0.002");
+        nameText.setAttribute("position", "0 0.58 0.002");
         nameText.setAttribute("align", "center");
         nameText.setAttribute("color", "#f0fdf4");
-        nameText.setAttribute("width", "1.6");
+        nameText.setAttribute("width", "2.4");
         nameText.setAttribute("font", "mozillavr");
         nameText.setAttribute("id", "ar-recipe-name");
         panelEntity.appendChild(nameText);
 
-        // ── Step counter ──
+        /* ── Divider line ── */
+        const divider = document.createElement("a-plane");
+        divider.setAttribute("position", "0 0.42 0.001");
+        divider.setAttribute("width", "2.4");
+        divider.setAttribute("height", "0.015");
+        divider.setAttribute("color", "#22c55e");
+        divider.setAttribute("opacity", "0.4");
+        panelEntity.appendChild(divider);
+
+        /* ── Step counter ── */
         const stepText = document.createElement("a-text");
         stepText.setAttribute("value", `STEP 1 OF ${totalSteps}`);
-        stepText.setAttribute("position", "0 0.25 0.002");
+        stepText.setAttribute("position", "0 0.28 0.002");
         stepText.setAttribute("align", "center");
         stepText.setAttribute("color", "#4ade80");
-        stepText.setAttribute("width", "1.4");
+        stepText.setAttribute("width", "2.0");
         stepText.setAttribute("font", "mozillavr");
         stepText.setAttribute("id", "ar-step-counter");
         panelEntity.appendChild(stepText);
 
-        // ── Instruction text ──
+        /* ── Instruction text ── */
         const instrText = document.createElement("a-text");
-        instrText.setAttribute("value", wrapText(recipe.steps[0].instruction, 32));
-        instrText.setAttribute("position", "0 0.0 0.002");
+        instrText.setAttribute("value", wrapText(recipe.steps[0].instruction, 30));
+        instrText.setAttribute("position", "0 -0.05 0.002");
         instrText.setAttribute("align", "center");
         instrText.setAttribute("color", "#d1fae5");
-        instrText.setAttribute("width", "1.5");
+        instrText.setAttribute("width", "2.4");
         instrText.setAttribute("font", "mozillavr");
         instrText.setAttribute("id", "ar-instruction");
         instrText.setAttribute("baseline", "top");
-        instrText.setAttribute("wrap-count", "32");
+        instrText.setAttribute("wrap-count", "30");
         panelEntity.appendChild(instrText);
 
-        // ── Timer text ──
+        /* ── Timer text ── */
         const timerText = document.createElement("a-text");
         timerText.setAttribute(
           "value",
           recipe.steps[0].duration > 0 ? `TIMER: ${formatTime(recipe.steps[0].duration)}` : ""
         );
-        timerText.setAttribute("position", "0 -0.45 0.002");
+        timerText.setAttribute("position", "0 -0.72 0.002");
         timerText.setAttribute("align", "center");
         timerText.setAttribute("color", "#fb923c");
-        timerText.setAttribute("width", "1.8");
+        timerText.setAttribute("width", "2.2");
         timerText.setAttribute("font", "mozillavr");
         timerText.setAttribute("id", "ar-timer");
         panelEntity.appendChild(timerText);
 
-        // ── Orange accent bar (bottom) ──
+        /* ── Orange accent bar (bottom) ── */
         const accentBottom = document.createElement("a-plane");
-        accentBottom.setAttribute("position", "0 -0.79 0.001");
-        accentBottom.setAttribute("width", "2.2");
-        accentBottom.setAttribute("height", "0.06");
+        accentBottom.setAttribute("position", "0 -1.04 0.001");
+        accentBottom.setAttribute("width", "2.8");
+        accentBottom.setAttribute("height", "0.08");
         accentBottom.setAttribute("color", "#f97316");
         accentBottom.setAttribute("opacity", "0.7");
         panelEntity.appendChild(accentBottom);
 
-        // ── Decorative: small cooking pot icon (cylinder) ──
-        const pot = document.createElement("a-cylinder");
-        pot.setAttribute("position", "0.85 -0.55 0.05");
-        pot.setAttribute("radius", "0.08");
-        pot.setAttribute("height", "0.06");
-        pot.setAttribute("color", "#3d5046");
-        pot.setAttribute("metalness", "0.3");
-        panelEntity.appendChild(pot);
-
-        // ── Steam animation spheres ──
-        const steam1 = document.createElement("a-sphere");
-        steam1.setAttribute("position", "-0.02 -0.42 0.05");
-        steam1.setAttribute("radius", "0.025");
-        steam1.setAttribute("color", "#a3b3a8");
-        steam1.setAttribute("opacity", "0.4");
-        steam1.setAttribute("animation", "property: position; to: -0.02 -0.28 0.05; dur: 1800; easing: easeOutQuad; loop: true");
-        panelEntity.appendChild(steam1);
-
-        const steam2 = document.createElement("a-sphere");
-        steam2.setAttribute("position", "0.02 -0.44 0.05");
-        steam2.setAttribute("radius", "0.018");
-        steam2.setAttribute("color", "#a3b3a8");
-        steam2.setAttribute("opacity", "0.3");
-        steam2.setAttribute("animation", "property: position; to: 0.02 -0.31 0.05; dur: 2200; easing: easeOutQuad; loop: true; delay: 400");
-        panelEntity.appendChild(steam2);
-
         scene.appendChild(marker);
 
-        // Camera entity
+        /* ── Camera entity ── */
         const camera = document.createElement("a-entity");
         camera.setAttribute("camera", "");
         scene.appendChild(camera);
 
         container.appendChild(scene);
+
+        // If AFRAME already initialised before scene was added, try registering now
+        setTimeout(() => registerDistanceScaler(), 800);
       } catch (err) {
         setArError(err instanceof Error ? err.message : "Failed to create AR scene");
       }
@@ -448,7 +521,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  /* ── Update AR text when step changes ─────────────────────────────────── */
+  /* ── Update AR text when step changes ──────────────────────────────────── */
   useEffect(() => {
     if (phase !== "ar") return;
     const updateTimeout = setTimeout(() => {
@@ -456,7 +529,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
       const instrEl = document.getElementById("ar-instruction");
       const timerEl = document.getElementById("ar-timer");
       if (stepEl) stepEl.setAttribute("value", `STEP ${currentStep + 1} OF ${totalSteps}`);
-      if (instrEl) instrEl.setAttribute("value", wrapText(step.instruction, 32));
+      if (instrEl) instrEl.setAttribute("value", wrapText(step.instruction, 30));
       if (timerEl) {
         timerEl.setAttribute(
           "value",
@@ -467,7 +540,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     return () => clearTimeout(updateTimeout);
   }, [phase, currentStep, step, totalSteps]);
 
-  /* ── Update AR timer display in real time ─────────────────────────────── */
+  /* ── Update AR timer display in real time ───────────────────────────────── */
   useEffect(() => {
     if (phase !== "ar") return;
     const timerEl = document.getElementById("ar-timer");
@@ -478,7 +551,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     }
   }, [phase, timer.remaining, timer.total, timer.running, step.duration]);
 
-  /* ── Full AR teardown on unmount ──────────────────────────────────────── */
+  /* ── Full AR teardown on unmount ────────────────────────────────────────── */
   useEffect(() => {
     return () => {
       exitAR();
@@ -486,7 +559,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Voice Commands ───────────────────────────────────────────────────── */
+  /* ── Voice Commands ─────────────────────────────────────────────────────── */
   const isSpeechSupported =
     typeof window !== "undefined" &&
     !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -534,11 +607,9 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
     } else if (cmd.includes("stop") || cmd.includes("pause")) {
       stopTimer();
     } else if (cmd.includes("repeat")) {
-      // "Repeat" — just re-render; the step text is already shown
       setLastVoiceCmd("Repeating current step…");
     }
   }, [goNext, goPrev, startTimer, stopTimer]);
-
 
   const toggleVoice = useCallback(() => {
     if (!isSpeechSupported) return;
@@ -554,7 +625,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   }, [voiceEnabled, isSpeechSupported]);
 
   /* ═══════════════════════════════════════════════════════════════════════ */
-  /*   RENDER — INTRO SCREEN                                                */
+  /*   RENDER — INTRO SCREEN                                               */
   /* ═══════════════════════════════════════════════════════════════════════ */
 
   if (phase === "intro") {
@@ -710,23 +781,28 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   }
 
   /* ═══════════════════════════════════════════════════════════════════════ */
-  /*   RENDER — COMPLETION SCREEN                                           */
+  /*   RENDER — COMPLETION SCREEN                                          */
   /* ═══════════════════════════════════════════════════════════════════════ */
 
   if (phase === "complete") {
     return (
       <div
+        data-ar-managed="completion"
         style={{
-          minHeight: "100dvh",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100dvh",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           padding: "2rem 1.25rem",
           textAlign: "center",
-          position: "relative",
-          zIndex: 100,
+          zIndex: 200,
           backgroundColor: "var(--color-surface-900)",
+          overflowY: "auto",
         }}
       >
         <div
@@ -785,7 +861,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center", position: "relative", zIndex: 201 }}>
           <Link
             href={`/recipe/${recipe.id}`}
             id="completion-view-recipe"
@@ -830,14 +906,15 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   }
 
   /* ═══════════════════════════════════════════════════════════════════════ */
-  /*   RENDER — AR MODE (A-Frame + AR.js scene with HUD overlay)            */
+  /*   RENDER — AR MODE (A-Frame + AR.js scene with HUD overlay)           */
   /* ═══════════════════════════════════════════════════════════════════════ */
 
   return (
     <>
-      {/* A-Frame AR scene container — sits at z-index 0 */}
+      {/* A-Frame AR scene container — sits at z-index 0, fixed full-screen */}
       <div
         ref={arContainerRef}
+        data-ar-managed="scene"
         style={{
           position: "fixed",
           top: 0,
@@ -1158,7 +1235,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
             </button>
           </div>
 
-          {/* Voice listen button (only when voice is enabled) */}
+          {/* Voice listen button */}
           {voiceEnabled && (
             <button
               onClick={listenOnce}
@@ -1182,30 +1259,6 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
             </button>
           )}
         </div>
-
-        {/* Voice unsupported notice (show once when user opens voice for the first time) */}
-        {!isSpeechSupported && (
-          <div
-            style={{
-              position: "fixed",
-              bottom: "1rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "rgba(30,30,30,0.92)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "0.75rem",
-              padding: "0.75rem 1.25rem",
-              fontSize: "0.8125rem",
-              color: "#a3b3a8",
-              textAlign: "center",
-              maxWidth: "300px",
-              zIndex: 20,
-              pointerEvents: "none",
-            }}
-          >
-            Voice control is not supported on this browser. Use the touch controls instead.
-          </div>
-        )}
       </div>
 
       {/* AR-mode styles */}
@@ -1223,7 +1276,6 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
           .ar-instruction-text {
             font-size: 0.8125rem !important;
             margin-bottom: 0.375rem !important;
-            /* Clamp to 2 lines in landscape */
             display: -webkit-box !important;
             -webkit-line-clamp: 2 !important;
             -webkit-box-orient: vertical !important;
@@ -1234,6 +1286,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
         /* Prevent A-Frame from injecting its own fullscreen button */
         .a-enter-vr { display: none !important; }
         .a-loader-title { display: none !important; }
+        .a-orientation-modal { display: none !important; }
       `}</style>
     </>
   );
