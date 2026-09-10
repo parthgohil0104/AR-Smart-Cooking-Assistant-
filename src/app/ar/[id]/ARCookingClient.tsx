@@ -51,7 +51,7 @@ interface ISpeechRecognition extends EventTarget {
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
-type ARPhase = "intro" | "ar" | "complete";
+type ARPhase = "loading" | "ar" | "complete";
 
 interface TimerState {
   remaining: number;
@@ -91,7 +91,7 @@ function wrapText(text: string, maxChars: number): string {
 
 export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   /* ── State ──────────────────────────────────────────────────────────────── */
-  const [phase, setPhase] = useState<ARPhase>("intro");
+  const [phase, setPhase] = useState<ARPhase>("loading");
   const [currentStep, setCurrentStep] = useState(0);
   const [timer, setTimer] = useState<TimerState>({ remaining: 0, running: false, total: 0 });
   const [markerDetected, setMarkerDetected] = useState(false);
@@ -131,6 +131,14 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
       document.documentElement.style.overscrollBehavior = "";
     };
   }, [phase]);
+
+  /* ── Auto-start AR when the tab loads ──────────────────────────────────── */
+  useEffect(() => {
+    // The preparation screen is shown on the recipe page before this tab opens.
+    // This tab should go straight to camera without any intro screen.
+    startAR();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── Timer logic ────────────────────────────────────────────────────────── */
   const stopTimer = useCallback(() => {
@@ -625,158 +633,108 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   }, [voiceEnabled, isSpeechSupported]);
 
   /* ═══════════════════════════════════════════════════════════════════════ */
-  /*   RENDER — INTRO SCREEN                                               */
+  /*   RENDER — LOADING / ERROR SCREEN                                     */
   /* ═══════════════════════════════════════════════════════════════════════ */
 
-  if (phase === "intro") {
+  if (phase === "loading") {
     return (
-      <>
-        <div
-          style={{
-            minHeight: "100dvh",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "2rem 1.25rem",
-            textAlign: "center",
-            position: "relative",
-          }}
-        >
-          {/* Background glow */}
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              top: "20%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "400px",
-              height: "400px",
-              background: "radial-gradient(circle, rgba(34,197,94,0.1) 0%, transparent 70%)",
-              pointerEvents: "none",
-            }}
-          />
-
-          <div style={{ fontSize: "4rem", marginBottom: "1.5rem", animation: "arFloat 3s ease-in-out infinite" }}>
-            🥽
-          </div>
-
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
-              fontWeight: 800,
-              color: "#f0fdf4",
-              letterSpacing: "-0.03em",
-              marginBottom: "0.5rem",
-            }}
-          >
-            AR Cooking Mode
-          </h1>
-
-          <p
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1rem, 3vw, 1.375rem)",
-              fontWeight: 600,
-              color: "#4ade80",
-              marginBottom: "1.5rem",
-            }}
-          >
-            {recipe.name}
-          </p>
-
-          <p style={{ fontSize: "0.9375rem", color: "#a3b3a8", maxWidth: "400px", lineHeight: 1.7, marginBottom: "0.5rem" }}>
-            Point your phone camera at the <strong style={{ color: "#4ade80" }}>Hiro AR marker</strong> to start the cooking guide.
-          </p>
-          <p style={{ fontSize: "0.8125rem", color: "#6b7f74", maxWidth: "400px", lineHeight: 1.6, marginBottom: "1.5rem" }}>
-            Print the marker or display it on another screen. The cooking instructions will appear as an AR overlay anchored to the marker.
-          </p>
-
-          {/* Marker preview */}
-          <div
-            style={{
-              marginBottom: "1.5rem",
-              padding: "0.75rem",
-              background: "#fff",
-              borderRadius: "1rem",
-              display: "inline-block",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/ar/hiro-marker.png"
-              alt="Hiro AR Marker — print this or display on another screen"
-              style={{ width: "160px", height: "160px", display: "block" }}
-            />
-          </div>
-          <p style={{ fontSize: "0.75rem", color: "#6b7f74", marginBottom: "2rem" }}>
-            <a href="/ar/hiro-marker.png" download style={{ color: "#4ade80", textDecoration: "underline" }}>
-              Download marker image
-            </a>{" "}
-            — print it or open on another device
-          </p>
-
-          {/* Recipe meta */}
-          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap", marginBottom: "2rem" }}>
-            <span
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#0a0f0d",
+          padding: "2rem",
+          textAlign: "center",
+        }}
+      >
+        {arError ? (
+          /* ── Error state ── */
+          <>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
+            <h1
               style={{
-                padding: "0.3rem 0.875rem",
-                borderRadius: "999px",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                backgroundColor: recipe.difficulty === "Easy" ? "rgba(34,197,94,0.15)" : recipe.difficulty === "Medium" ? "rgba(251,146,60,0.15)" : "rgba(239,68,68,0.15)",
-                color: recipe.difficulty === "Easy" ? "#4ade80" : recipe.difficulty === "Medium" ? "#fb923c" : "#f87171",
+                fontFamily: "var(--font-display)",
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "#f0fdf4",
+                marginBottom: "0.75rem",
               }}
             >
-              {recipe.difficulty}
-            </span>
-            <span style={{ padding: "0.3rem 0.875rem", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.06)", color: "#a3b3a8" }}>
-              {totalSteps} steps · {recipe.cookingTime} min
-            </span>
-            <span style={{ padding: "0.3rem 0.875rem", borderRadius: "999px", fontSize: "0.8rem", fontWeight: 500, backgroundColor: "rgba(251,191,36,0.1)", color: "#fbbf24" }}>
-              ⭐ {recipe.points} pts
-            </span>
-          </div>
-
-          {arError && (
-            <p style={{ fontSize: "0.875rem", color: "#f87171", marginBottom: "1rem", maxWidth: "400px", lineHeight: 1.5 }}>
-              ⚠️ {arError}
+              Camera Error
+            </h1>
+            <p
+              style={{
+                fontSize: "0.9375rem",
+                color: "#f87171",
+                maxWidth: "360px",
+                lineHeight: 1.6,
+                marginBottom: "1.5rem",
+              }}
+            >
+              {arError}
             </p>
-          )}
-
-          <button
-            onClick={startAR}
-            id="start-ar-session"
-            style={{
-              padding: "1rem 2.5rem",
-              borderRadius: "0.875rem",
-              border: "none",
-              background: "linear-gradient(135deg, #22c55e, #16a34a)",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: "1.0625rem",
-              cursor: "pointer",
-              boxShadow: "0 4px 24px rgba(34,197,94,0.4)",
-              marginBottom: "1.5rem",
-            }}
-          >
-            📸 Start AR
-          </button>
-
-          <Link href={`/recipe/${recipe.id}`} style={{ fontSize: "0.875rem", color: "#6b7f74", textDecoration: "none" }}>
-            ← Back to Recipe
-          </Link>
-        </div>
-
+            <button
+              onClick={startAR}
+              id="retry-ar-btn"
+              style={{
+                padding: "0.75rem 2rem",
+                borderRadius: "0.75rem",
+                border: "none",
+                background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "1rem",
+                cursor: "pointer",
+                marginBottom: "1rem",
+                fontFamily: "inherit",
+              }}
+            >
+              Try Again
+            </button>
+            <p style={{ fontSize: "0.8125rem", color: "#6b7f74" }}>
+              You can close this tab and try again from the recipe page.
+            </p>
+          </>
+        ) : (
+          /* ── Loading state ── */
+          <>
+            <div
+              style={{
+                width: "56px",
+                height: "56px",
+                borderRadius: "50%",
+                border: "3px solid rgba(34,197,94,0.2)",
+                borderTopColor: "#22c55e",
+                animation: "arSpin 0.9s linear infinite",
+                marginBottom: "1.5rem",
+              }}
+            />
+            <p
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 600,
+                fontSize: "1rem",
+                color: "#4ade80",
+                marginBottom: "0.375rem",
+              }}
+            >
+              Starting AR…
+            </p>
+            <p style={{ fontSize: "0.8125rem", color: "#6b7f74" }}>
+              Allow camera access when prompted
+            </p>
+          </>
+        )}
         <style>{`
-          @keyframes arFloat {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
+          @keyframes arSpin {
+            to { transform: rotate(360deg); }
           }
         `}</style>
-      </>
+      </div>
     );
   }
 
@@ -956,7 +914,7 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
             <button
-              onClick={() => { exitAR(); setPhase("intro"); }}
+              onClick={() => { exitAR(); try { window.close(); } catch { /* ignore */ } setPhase("complete"); }}
               style={{ background: "none", border: "none", color: "#a3b3a8", cursor: "pointer", fontSize: "1.125rem", padding: "0.25rem", lineHeight: 1 }}
               aria-label="Exit AR mode"
               id="ar-exit-btn"

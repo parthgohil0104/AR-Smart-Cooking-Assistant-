@@ -329,7 +329,7 @@ export default async function RecipeDetailPage({ params }: Props) {
               Enter AR Cooking Mode and follow step-by-step instructions overlaid on your real kitchen.
             </p>
           </div>
-          <StartARButton recipeId={recipe.id} />
+          <StartARButton recipeId={recipe.id} recipeName={recipe.name} />
         </div>
 
         {/* Footer links */}
