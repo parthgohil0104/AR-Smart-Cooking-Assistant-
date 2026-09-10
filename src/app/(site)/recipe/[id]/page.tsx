@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRecipeById, recipes } from "@/data/recipes";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { StartARButton } from "./StartARButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -328,25 +329,7 @@ export default async function RecipeDetailPage({ params }: Props) {
               Enter AR Cooking Mode and follow step-by-step instructions overlaid on your real kitchen.
             </p>
           </div>
-          <Link
-            href={`/ar/${recipe.id}`}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.875rem 2rem",
-              borderRadius: "0.75rem",
-              background: "linear-gradient(135deg, #22c55e, #16a34a)",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: "1rem",
-              textDecoration: "none",
-              boxShadow: "0 4px 20px rgba(34,197,94,0.35)",
-            }}
-            id="start-ar-btn"
-          >
-            🥽 Start AR Cooking
-          </Link>
+          <StartARButton recipeId={recipe.id} />
         </div>
 
         {/* Footer links */}
