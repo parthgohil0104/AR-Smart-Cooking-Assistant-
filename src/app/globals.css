@@ -56,8 +56,9 @@ body {
 
 /* ── AR Mode: full-screen isolation ─────────────────────────────────────────
    Applied via JS when the user enters /ar/[id] active AR phase.
-   Prevents body scroll, hides navbar/footer/main content, and ensures the
-   AR camera fills the entire viewport without normal webpage elements showing.
+   The /ar/* routes render NO Navbar or Footer (architectural isolation via
+   Next.js route groups). These rules only handle scroll/overflow suppression
+   and ensure A-Frame/AR.js canvas+video cover the full viewport.
    ─────────────────────────────────────────────────────────────────────────── */
 html.ar-active,
 body.ar-active {
@@ -66,13 +67,6 @@ body.ar-active {
   touch-action: none;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: auto;
-}
-
-/* Hide the root layout header, main, and footer when AR is active */
-body.ar-active > * > header,
-body.ar-active > * > footer,
-body.ar-active > * > main {
-  display: none !important;
 }
 
 /* a-scene injected by A-Frame must cover the full viewport */

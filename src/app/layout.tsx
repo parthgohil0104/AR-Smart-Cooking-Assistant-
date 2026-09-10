@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "AR Smart Cooking Assistant",
@@ -16,6 +14,16 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Root layout: provides <html> + <body> ONLY.
+ *
+ * Navbar and Footer are intentionally NOT rendered here so that the
+ * /ar/[id] route can operate as a completely isolated, full-screen
+ * experience without any website chrome.
+ *
+ * All normal website pages are nested inside src/app/(site)/layout.tsx
+ * which adds the Navbar and Footer for that route group.
+ */
 export default function RootLayout({
   children,
 }: {
@@ -23,11 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <Navbar />
-        <main>{children}</main>
-        <Footer />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
