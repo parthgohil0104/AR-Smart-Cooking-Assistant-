@@ -53,3 +53,42 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
 }
+
+/* ── AR Mode: full-screen isolation ─────────────────────────────────────────
+   Applied via JS when the user enters /ar/[id] active AR phase.
+   Prevents body scroll, hides navbar/footer, and ensures the AR camera
+   fills the entire viewport without normal webpage elements showing through.
+   ─────────────────────────────────────────────────────────────────────────── */
+body.ar-active {
+  overflow: hidden !important;
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+body.ar-active > * > header,
+body.ar-active > * > footer {
+  display: none !important;
+}
+
+/* a-scene injected by A-Frame must cover the full viewport */
+body.ar-active a-scene {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  z-index: 0 !important;
+}
+
+/* AR.js injects a canvas and video element directly onto the body */
+body.ar-active canvas,
+body.ar-active video {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  object-fit: cover !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+}

@@ -2,18 +2,17 @@
 
 import { recipes } from "@/data/recipes";
 import { RecipeQRCard } from "@/components/RecipeQRCard";
-import { useEffect, useState } from "react";
+import { CANONICAL_APP_URL } from "@/lib/config";
 
+/**
+ * QR page client component.
+ *
+ * QR codes ALWAYS encode the canonical production URL regardless of
+ * which environment (localhost, Vercel preview, production) is rendering
+ * the page. This prevents preview-deployment URLs from being baked into
+ * printed QR codes.
+ */
 export function QRPageClient() {
-  const [origin, setOrigin] = useState("");
-
-  // Capture the window origin once on the client so QR codes encode the
-  // correct full URL in both local dev (http://localhost:3000) and
-  // production (the Vercel domain).
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
-
   const handlePrint = () => {
     window.print();
   };
@@ -113,49 +112,24 @@ export function QRPageClient() {
         </div>
 
         {/* QR card grid */}
-        {origin ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            {recipes.map((recipe) => (
-              <RecipeQRCard
-                key={recipe.id}
-                id={recipe.id}
-                name={recipe.name}
-                difficulty={recipe.difficulty}
-                cookingTime={recipe.cookingTime}
-                qrUrl={`${origin}/recipe/${recipe.id}`}
-              />
-            ))}
-          </div>
-        ) : (
-          /* Loading skeleton while origin resolves on the client */
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-              gap: "1.5rem",
-            }}
-          >
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: "var(--color-surface-800)",
-                  border: "1px solid rgba(34,197,94,0.1)",
-                  borderRadius: "1.25rem",
-                  padding: "1.75rem",
-                  height: "360px",
-                }}
-                className="skeleton-card"
-              />
-            ))}
-          </div>
-        )}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: "1.5rem",
+          }}
+        >
+          {recipes.map((recipe) => (
+            <RecipeQRCard
+              key={recipe.id}
+              id={recipe.id}
+              name={recipe.name}
+              difficulty={recipe.difficulty}
+              cookingTime={recipe.cookingTime}
+              qrUrl={`${CANONICAL_APP_URL}/recipe/${recipe.id}`}
+            />
+          ))}
+        </div>
       </section>
 
       <style>{`
@@ -168,13 +142,6 @@ export function QRPageClient() {
         }
         .print-btn:hover {
           background-color: rgba(34, 197, 94, 0.15) !important;
-        }
-        @keyframes skeleton-pulse {
-          0%, 100% { opacity: 0.4; }
-          50%       { opacity: 0.7; }
-        }
-        .skeleton-card {
-          animation: skeleton-pulse 1.5s ease-in-out infinite;
         }
 
         /* ── Print styles ─────────────────────────────────────────────────── */
