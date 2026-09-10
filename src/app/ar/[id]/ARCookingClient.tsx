@@ -114,23 +114,23 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
   useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
   useEffect(() => { timerRunningRef.current = timer.running; }, [timer.running]);
 
-  /* ── Body / viewport isolation ─────────────────────────────────────────── */
+  /* ── Body / viewport isolation — applied immediately on mount ───────────── */
   useEffect(() => {
-    if (phase === "ar") {
-      document.body.classList.add("ar-active");
-      document.documentElement.classList.add("ar-active");
-      document.documentElement.style.overscrollBehavior = "none";
-    } else {
-      document.body.classList.remove("ar-active");
-      document.documentElement.classList.remove("ar-active");
-      document.documentElement.style.overscrollBehavior = "";
-    }
+    // Apply on mount so there is never a frame of scrollable content.
+    // The AR tab is a dedicated full-screen application from the moment it opens.
+    document.body.classList.add("ar-active");
+    document.documentElement.classList.add("ar-active");
+    document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     return () => {
       document.body.classList.remove("ar-active");
       document.documentElement.classList.remove("ar-active");
       document.documentElement.style.overscrollBehavior = "";
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
     };
-  }, [phase]);
+  }, []);
 
   /* ── Auto-start AR when the tab loads ──────────────────────────────────── */
   useEffect(() => {
@@ -1117,39 +1117,6 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
             )}
           </div>
 
-          {/* Instruction */}
-          <p
-            className="ar-instruction-text"
-            style={{
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              color: "#d1fae5",
-              lineHeight: 1.5,
-              marginBottom: step.optionalTip ? "0.5rem" : "0.625rem",
-            }}
-          >
-            {step.instruction}
-          </p>
-
-          {step.optionalTip && (
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: "#fb923c",
-                backgroundColor: "rgba(251,146,60,0.08)",
-                borderLeft: "3px solid rgba(251,146,60,0.5)",
-                paddingLeft: "0.625rem",
-                paddingTop: "0.25rem",
-                paddingBottom: "0.25rem",
-                borderRadius: "0 4px 4px 0",
-                lineHeight: 1.5,
-                marginBottom: "0.625rem",
-              }}
-            >
-              💡 {step.optionalTip}
-            </p>
-          )}
-
           {/* Navigation buttons */}
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: voiceEnabled ? "0.5rem" : 0 }}>
             <button
@@ -1226,18 +1193,10 @@ export function ARCookingClient({ recipe }: { recipe: Recipe }) {
           50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
         }
 
-        /* Landscape: compact HUD so camera view is larger */
+        /* Landscape: compact HUD so camera view is maximised */
         @media (orientation: landscape) and (max-height: 500px) {
           .ar-hud-bottom {
-            padding: 0.375rem 0.875rem 0.5rem !important;
-          }
-          .ar-instruction-text {
-            font-size: 0.8125rem !important;
-            margin-bottom: 0.375rem !important;
-            display: -webkit-box !important;
-            -webkit-line-clamp: 2 !important;
-            -webkit-box-orient: vertical !important;
-            overflow: hidden !important;
+            padding: 0.25rem 0.875rem 0.375rem !important;
           }
         }
 
